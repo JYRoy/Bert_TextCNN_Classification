@@ -1,0 +1,2 @@
+# Bert_TextCNN_Classification
+基于Bert和TextCNN的文本分类实现
