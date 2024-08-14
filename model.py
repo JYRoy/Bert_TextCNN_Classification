@@ -6,7 +6,89 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+from dataloader import *
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+class BertTextCNNModel(nn.Module):
+
+    def __init__(self):
+        super(BertTextCNNModel, self).__init__()
+        self.bert = PretrainedBertModel()
+        self.text_cnn = TextCNNModel()
+
+    def forward(self, input_ids, attention_mask, token_type_ids):
+        x = self.bert(input_ids, attention_mask, token_type_ids)
+        x = self.text_cnn(x)
+        return x
+
+
+class PretrainedBertModel(nn.Module):
+
+    def __init__(self):
+        super(PretrainedBertModel, self).__init__()
+        self.fc = torch.nn.Linear(768, 2)
+
+    def forward(self, input_ids, attention_mask, token_type_ids):
+
+        with torch.no_grad():
+            out = pretrained_model(
+                input_ids=input_ids,
+                attention_mask=attention_mask,
+                token_type_ids=token_type_ids,
+            )
+
+        # out = self.fc(out.last_hidden_state[:, 0])
+
+        # out = out.softmax(-1)
+        return out
+
+
+class TextCNNModel(nn.Module):
+
+    def __init__(self):
+        super(TextCNNModel, self).__init__()
+        self.conv1 = nn.Sequential(
+            # conv : [input_channel(=1), output_channel, (filter_height, filter_width), stride=1]
+            nn.Conv2d(1, 5, (2, 768)),
+            nn.ReLU(),
+            # pool : ((filter_height, filter_width))
+            nn.AdaptiveMaxPool2d(1),
+        )  # [batch_size, output_channel, 1, 1]
+        self.conv2 = nn.Sequential(
+            # conv : [input_channel(=1), output_channel, (filter_height, filter_width), stride=1]
+            nn.Conv2d(1, 5, (3, 768)),
+            nn.ReLU(),
+            # pool : ((filter_height, filter_width))
+            nn.AdaptiveMaxPool2d(1),
+        )  # [batch_size, output_channel, 1, 1]
+        self.conv3 = nn.Sequential(
+            # conv : [input_channel(=1), output_channel, (filter_height, filter_width), stride=1]
+            nn.Conv2d(1, 5, (4, 768)),
+            nn.ReLU(),
+            # pool : ((filter_height, filter_width))
+            nn.AdaptiveMaxPool2d(1),
+        )  # [batch_size, output_channel, 1, 1]
+        # fc
+        self.fc = nn.Linear(15, 2)
+
+        # self.fc = nn.Linear()
+
+    def forward(self, x):
+        x = x["last_hidden_state"]  # [batch_size, seq_len, embedding_size]
+        x = x.unsqueeze(1)  # [batch_size, 1, seq_len, embedding_size]
+        batch_size = x.size(0)
+
+        x1 = self.conv1(x).view(batch_size, -1)  # [batch_size, output_channel*1*1]
+        x2 = self.conv2(x).view(batch_size, -1)  # [batch_size, output_channel*1*1]
+        x3 = self.conv3(x).view(batch_size, -1)  # [batch_size, output_channel*1*1]
+ 
+        conved = torch.cat([x1, x2, x3], -1)
+        
+        flatten = conved.view(batch_size, -1)
+        output = self.fc(flatten)
+        return output
 
 
 @dataclass
@@ -133,6 +215,3 @@ class BERT(nn.Module):
         for encoder in self.layers:
             x = encoder(x, mask)
         return x
-
-
-model = BERT(config=BertConfig())
