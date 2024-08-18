@@ -51,41 +51,47 @@ class TextCNNModel(nn.Module):
         super(TextCNNModel, self).__init__()
         self.conv1 = nn.Sequential(
             # conv : [input_channel(=1), output_channel, (filter_height, filter_width), stride=1]
-            nn.Conv2d(1, 5, (2, 768)),
+            nn.Conv2d(1, 5, (3, 768)),
+            # nn.Conv1d(768, 256, 3),
             nn.ReLU(),
             # pool : ((filter_height, filter_width))
             nn.AdaptiveMaxPool2d(1),
+            # nn.AdaptiveMaxPool1d(1),
         )  # [batch_size, output_channel, 1, 1]
         self.conv2 = nn.Sequential(
             # conv : [input_channel(=1), output_channel, (filter_height, filter_width), stride=1]
-            nn.Conv2d(1, 5, (3, 768)),
+            nn.Conv2d(1, 5, (4, 768)),
+            # nn.Conv1d(768, 256, 4),
             nn.ReLU(),
             # pool : ((filter_height, filter_width))
             nn.AdaptiveMaxPool2d(1),
+            # nn.AdaptiveMaxPool1d(1),
         )  # [batch_size, output_channel, 1, 1]
         self.conv3 = nn.Sequential(
             # conv : [input_channel(=1), output_channel, (filter_height, filter_width), stride=1]
-            nn.Conv2d(1, 5, (4, 768)),
+            nn.Conv2d(1, 5, (5, 768)),
+            # nn.Conv1d(768, 256, 5),
             nn.ReLU(),
             # pool : ((filter_height, filter_width))
             nn.AdaptiveMaxPool2d(1),
+            # nn.AdaptiveMaxPool1d(1),
         )  # [batch_size, output_channel, 1, 1]
         # fc
         self.fc = nn.Linear(15, 2)
-
-        # self.fc = nn.Linear()
+        # self.fc = nn.Linear(768, 2)
 
     def forward(self, x):
         x = x["last_hidden_state"]  # [batch_size, seq_len, embedding_size]
-        x = x.unsqueeze(1)  # [batch_size, 1, seq_len, embedding_size]
+        x = x.unsqueeze(1)  # for conv2d: [batch_size, 1, seq_len, embedding_size]
+        # x = x.permute(0, 2, 1)  # for conv1d [batch_size, embedding_size, seq_len]
         batch_size = x.size(0)
 
         x1 = self.conv1(x).view(batch_size, -1)  # [batch_size, output_channel*1*1]
         x2 = self.conv2(x).view(batch_size, -1)  # [batch_size, output_channel*1*1]
         x3 = self.conv3(x).view(batch_size, -1)  # [batch_size, output_channel*1*1]
- 
+
         conved = torch.cat([x1, x2, x3], -1)
-        
+
         flatten = conved.view(batch_size, -1)
         output = self.fc(flatten)
         return output

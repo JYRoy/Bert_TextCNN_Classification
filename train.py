@@ -11,8 +11,8 @@ from sklearn.metrics import accuracy_score
 from dataloader import *
 from model import *
 
-EPOCH_NUM = 5
-BATCH_SIZE = 4
+EPOCH_NUM = 10
+BATCH_SIZE = 32
 seed = 2024
 random.seed(seed)
 os.environ["PYTHONHASHSEED"] = str(seed)
@@ -69,8 +69,8 @@ def valid_loop(dataloader, model):
         pred = torch.argmax(logits, -1)
         pred_labels = pred.cpu().numpy().tolist()
         true_labels = labels.cpu().numpy().tolist()
-        all_pred.append(pred_labels)
-        all_true.append(true_labels)
+        all_pred.extend(pred_labels)
+        all_true.extend(true_labels)
         progress_bar.update(1)
     acc = accuracy_score(all_true, all_pred)
     print("Validation Acc: ", acc)
@@ -94,7 +94,7 @@ test_dataloader = DataLoader(
 )
 model = BertTextCNNModel()
 model = model.to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, betas=(0.9, 0.95), eps=1e-8)
 lr_scheduler = get_scheduler(
     "linear",
     optimizer=optimizer,
